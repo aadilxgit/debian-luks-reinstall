@@ -18,6 +18,15 @@ The running system must be:
 
 Host commands required before the destructive phase include `wget`, `kexec`, `cpio`, `gzip`, `zcat`, `sha256sum`, `awk`, `ip`, `lsblk`, `findmnt`, `blkid`, `openssl`, and `systemd-detect-virt`.
 
+### KVM VPS console
+
+The kexec command line makes the serial console primary for KVM guests:
+
+```text
+console=tty0 console=ttyS0,115200n8 ---
+```
+
+The last `console=` controls `/dev/console`, so installer text and debconf output appear on the VPS serial console. The `bochs-drmfb` kernel message is informational and does not prove a hang. If the web/VNC console stops updating, connect to the provider's serial console or attach to the configured VPS console before interrupting the install. Do not blacklist `bochs` based only on that message.
 ## Quick Start & Setup
 
 Clone the repository on your remote VPS:

@@ -4,13 +4,13 @@ BASE=$(cd "$(dirname "$0")" && pwd)
 source "$BASE/lib/common.sh"
 for f in config detect validate download preseed postinstall initrd kexec; do source "$BASE/lib/$f.sh"; done
 cat >&2 <<'BANNER'
- _____ _   _ _____   _   _  ___  ____  ____  _____ 
-|_   _| | | | ____| | | | |/ _ \/ ___||  _ \| ____|
-  | | | |_| |  _|   | |_| | | | \___ \| |_) |  _|  
-  | | |  _  | |___  |  _  | |_| |___) |  _ <| |___ 
-  |_| |_| |_|_____| |_| |_|\___/|____/|_| \_\_____|
+TTTTT  H   H  EEEEE        H   H   OOO   RRRR   SSSS  EEEEE
+  T    H   H  E            H   H  O   O  R   R  S     E    
+  T    HHHHH  EEEE         HHHHH  O   O  RRRR   SSSS  EEEE 
+  T    H   H  E            H   H  O   O  R R    S     E    
+  T    H   H  EEEEE        H   H   OOO   R  RR  SSSS  EEEEE
 
-                 sends his reguards
+                         sends his reguards
 BANNER
 DRY_RUN=no CONFIG_FILE=""
 while (($#)); do case $1 in --dry-run) DRY_RUN=yes;; --config) CONFIG_FILE=$2; shift;; --verbose|-v) LOG_LEVEL=DEBUG;; --log-file) LOG_FILE=$2; shift;; --assume-yes) ASSUME_YES=yes;; -h|--help) echo "Usage: reinstall.sh [--dry-run] [--config FILE] [--verbose] [--log-file PATH] [--assume-yes]"; exit 0;; esac; shift; done
