@@ -43,9 +43,11 @@ load_config() {
 }
 apply_env_overrides() { local k v; for k in "${CONFIG_KEYS[@]}"; do if [[ -v $k ]]; then v=${!k}; CONFIG_ENV_SET[$k]=1; fi; done; }
 set_defaults() { :; }
-
 collect_ssh_keys() {
   local line key file; ADMIN_PUBKEYS=""
+  if [[ -z $ADMIN_SSH_PUBKEY && -z $ADMIN_SSH_PUBKEY_FILE && -r /root/.ssh/authorized_keys ]]; then
+    ADMIN_SSH_PUBKEY_FILE="/root/.ssh/authorized_keys"
+  fi
   [[ -n $ADMIN_SSH_PUBKEY ]] && ADMIN_PUBKEYS+="$ADMIN_SSH_PUBKEY\n"
   if [[ -n $ADMIN_SSH_PUBKEY_FILE ]]; then
     while IFS= read -r line || [[ -n $line ]]; do [[ -z $line || ${line:0:1} == \# ]] || ADMIN_PUBKEYS+="$line\n"; done < "$ADMIN_SSH_PUBKEY_FILE" || die "cannot read SSH key file"
