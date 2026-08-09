@@ -12,6 +12,7 @@ cat >&2 <<'BANNER'
 
                  sends his reguards
 BANNER
+DRY_RUN=no CONFIG_FILE=""
 while (($#)); do case $1 in --dry-run) DRY_RUN=yes;; --config) CONFIG_FILE=$2; shift;; --verbose|-v) LOG_LEVEL=DEBUG;; --log-file) LOG_FILE=$2; shift;; --assume-yes) ASSUME_YES=yes;; -h|--help) echo "Usage: reinstall.sh [--dry-run] [--config FILE] [--verbose] [--log-file PATH] [--assume-yes]"; exit 0;; esac; shift; done
 LOG_FILE="${LOG_FILE:-/tmp/reinstall-$(date -u +%Y%m%d-%H%M%S).log}"
 init_logging "$@"
@@ -33,5 +34,5 @@ TMPPW=$(openssl rand -hex 32); redact_add "$TMPPW"
 ADMIN_PW_CRYPT="${ADMIN_PASSWORD_HASH:-$(openssl passwd -6 "$(openssl rand -hex 16)")}"
 build_preseed "$TMPPW" "$ADMIN_PW_CRYPT"
 build_postinstall_artifacts "$TMPPW"
-if [[ $DRY_RUN == yes ]]; then render_partition_tree; cat "$WORKDIR/preseed.cfg"; build_cmdline; exit 0; fi
+if [[ ${DRY_RUN:-no} == yes ]]; then render_partition_tree; cat "$WORKDIR/preseed.cfg"; build_cmdline; exit 0; fi
 download_installer; verify_installer; build_payload; do_kexec
