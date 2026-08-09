@@ -6,14 +6,16 @@
 # This tool uses Bash arrays and is not POSIX sh.
 DEBIAN_SUITE="trixie"
 MIRROR="https://deb.debian.org/debian"
-TIMEZONE="UTC"
-TARGET_DISK=""
-PRIMARY_IFACE=""
-IPV4_ADDR=""
-NETMASK=""
-GATEWAY=""
-DNS_SERVERS=""
-HOSTNAME="debian"
+TIMEZONE="Asia/Kolkata"
+TARGET_DISK=""      # Auto-detected if blank (e.g. /dev/vda, /dev/sda, /dev/nvme0n1)
+PRIMARY_IFACE=""    # Auto-detected if blank (e.g. eth0)
+IPV4_ADDR=""        # Auto-detected if blank
+NETMASK=""          # Auto-detected if blank
+GATEWAY=""          # Auto-detected if blank
+DNS_SERVERS="1.1.1.1 1.0.0.1"
+IPV6_ADDR=""        # Auto-detected if blank
+IPV6_PREFIX=""      # Auto-detected if blank
+IPV6_GATEWAY=""     # Auto-detected if blank
 DOMAIN="local"
 BOOT_MODE=""
 NIC_MODULE=""
