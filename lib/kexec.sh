@@ -13,7 +13,7 @@ build_cmdline() {
     : "${HOSTNAME:?HOSTNAME is required}"
     : "${DOMAIN:?DOMAIN is required}"
     local primary_dns="${DNS_SERVERS%% *}"
-    CMDLINE="auto=true priority=critical DEBIAN_FRONTEND=text locale=en_US.UTF-8 keymap=us interface=auto netcfg/choose_interface=auto netcfg/disable_autoconfig=true netcfg/get_ipaddress=$IPV4_ADDR netcfg/get_netmask=$NETMASK netcfg/get_gateway=$GATEWAY netcfg/get_nameservers=$primary_dns netcfg/confirm_static=true netcfg/get_hostname=$HOSTNAME netcfg/get_domain=$DOMAIN preseed/file=/preseed.cfg console=ttyS0,115200n8 console=tty0 ---"
+    CMDLINE="auto=true priority=critical DEBIAN_FRONTEND=newt locale=en_US.UTF-8 keymap=us interface=auto netcfg/choose_interface=auto netcfg/disable_autoconfig=true netcfg/get_ipaddress=$IPV4_ADDR netcfg/get_netmask=$NETMASK netcfg/get_gateway=$GATEWAY netcfg/get_nameservers=$primary_dns netcfg/confirm_static=true netcfg/get_hostname=$HOSTNAME netcfg/get_domain=$DOMAIN preseed/file=/preseed.cfg console=ttyS0,115200n8 console=tty0 ---"
     printf '%s\n' "$CMDLINE"
 }
 
