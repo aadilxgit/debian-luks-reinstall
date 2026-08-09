@@ -6,7 +6,9 @@ build_recipe(){ local boot=$((BOOT_SIZE_MB-24)); local lead bootable=''; if [[ $
 build_preseed(){ local tmp=$1 crypt=$2 mirror_host=${MIRROR#https://} mirror_dir=/debian; if [[ $mirror_host == */* ]]; then mirror_dir=/${mirror_host#*/}; mirror_host=${mirror_host%%/*}; fi; mkdir -p "$WORKDIR"; cat >"$WORKDIR/preseed.cfg" <<EOF
 d-i debian-installer/locale string en_US.UTF-8
 d-i keyboard-configuration/xkb-keymap select us
-d-i netcfg/choose_interface select $PRIMARY_IFACE
+d-i netcfg/choose_interface select auto
+d-i netcfg/dhcp_failed note
+d-i netcfg/dhcp_options select Configure network manually
 d-i netcfg/disable_autoconfig boolean true
 d-i netcfg/get_ipaddress string $IPV4_ADDR
 d-i netcfg/get_netmask string $NETMASK
@@ -17,12 +19,11 @@ d-i netcfg/get_hostname string $HOSTNAME
 d-i netcfg/get_domain string $DOMAIN
 d-i netcfg/hostname string $HOSTNAME
 d-i mirror/country string manual
-d-i mirror/protocol string https
+d-i mirror/protocol string http
 d-i mirror/http/hostname string $mirror_host
 d-i mirror/http/directory string $mirror_dir
 d-i mirror/http/proxy string
 d-i mirror/suite string $DEBIAN_SUITE
-d-i passwd/root-login boolean false
 d-i passwd/make-user boolean true
 d-i passwd/user-fullname string $ADMIN_USER
 d-i passwd/username string $ADMIN_USER
@@ -34,9 +35,11 @@ d-i partman-auto/method string crypto
 d-i partman-auto/disk string $TARGET_DISK
 d-i partman-auto/expert_recipe string $(build_recipe)
 d-i partman-auto-lvm/guided_size string max
-d-i partman-auto-lvm/new_vg_name string vg_crypt
+d-i partman-auto/purge_lvm_from_device boolean true
 d-i partman-lvm/device_remove_lvm boolean true
 d-i partman-md/device_remove_md boolean true
+d-i partman-md/confirm boolean true
+d-i partman-md/confirm_nooverwrite boolean true
 d-i partman-lvm/confirm boolean true
 d-i partman-lvm/confirm_nooverwrite boolean true
 d-i partman-crypto/passphrase password $tmp
