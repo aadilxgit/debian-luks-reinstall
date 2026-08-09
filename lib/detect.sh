@@ -3,11 +3,11 @@ set -euo pipefail
 [[ ${_REINSTALL_DETECT_SH:-0} == 1 ]] && return 0
 _REINSTALL_DETECT_SH=1
 
-route_parse() { [[ $1 =~ default[[:space:]]+via[[:space:]]+([^[:space:]]+)[[:space:]]+dev[[:space:]]+([^[:space:]]+) ]] || return 1; GATEWAY=${BASH_REMATCH[1]}; PRIMARY_IFACE=${BASH_REMATCH[2]%%@*}; }
-addr_parse() { [[ $1 =~ inet[[:space:]]+([0-9.]+)/([0-9]+) ]] || return 1; IPV4_ADDR=${BASH_REMATCH[1]}; prefix_to_netmask "${BASH_REMATCH[2]}"; NETMASK=$REPLY; }
-prefix_to_netmask() { local p=$1 n=$((p)); (( n>=0 && n<=32 )) || return 1; local out='' i oct; for i in 1 2 3 4; do (( n>=8 )) && oct=255 || { ((n>0)) && oct=$((256-2**(8-n))) || oct=0; }; out+="${out:+.}$oct"; (( n>8 )) && n=$((n-8)) || n=0; done; REPLY=$out; }
-dns_parse() { DNS_SERVERS=$(awk '/^[[:space:]]*nameserver[[:space:]]+/{print $2}' <<<"$1" | tr '\n' ' '); DNS_SERVERS=${DNS_SERVERS% }; }
-disk_parse() { local src pk; src=$(awk 'NF{print $1; exit}' <<<"$1"); pk=$(awk 'NF{print $1; exit}' <<<"$2"); TARGET_DISK=${pk:+/dev/$pk}; [[ -n $TARGET_DISK ]] || TARGET_DISK=$src; }
+route_parse() { local input=${1:-}; [[ $input =~ default[[:space:]]+via[[:space:]]+([^[:space:]]+)[[:space:]]+dev[[:space:]]+([^[:space:]]+) ]] || return 1; GATEWAY=${BASH_REMATCH[1]}; PRIMARY_IFACE=${BASH_REMATCH[2]%%@*}; }
+addr_parse() { local input=${1:-} line; while IFS= read -r line; do if [[ $line =~ inet[[:space:]]+([0-9.]+)/([0-9]+) ]]; then IPV4_ADDR=${BASH_REMATCH[1]}; prefix_to_netmask "${BASH_REMATCH[2]:-32}"; NETMASK=$REPLY; return 0; fi; done <<< "$input"; return 1; }
+prefix_to_netmask() { local p="${1:-32}" n; n=$((p)); (( n>=0 && n<=32 )) || return 1; local out='' i oct; for i in 1 2 3 4; do (( n>=8 )) && oct=255 || { ((n>0)) && oct=$((256-2**(8-n))) || oct=0; }; out+="${out:+.}$oct"; (( n>8 )) && n=$((n-8)) || n=0; done; REPLY=$out; }
+dns_parse() { local input=${1:-}; DNS_SERVERS=$(awk '/^[[:space:]]*nameserver[[:space:]]+/{print $2}' <<<"$input" | tr '\n' ' '); DNS_SERVERS=${DNS_SERVERS% }; }
+disk_parse() { local src pk; src=$(awk 'NF{print $1; exit}' <<<"${1:-}"); pk=$(awk 'NF{print $1; exit}' <<<"${2:-}"); TARGET_DISK=${pk:+/dev/$pk}; [[ -n $TARGET_DISK ]] || TARGET_DISK=$src; }
 route_collect() { local o iface physical; o=$(ip -4 route show default); route_parse "$o"; iface=$PRIMARY_IFACE; if [[ $iface =~ ^(docker|veth|br-|virbr|tun|tap|wg|flannel|tailscale|lo|kube|cni|zt) ]]; then while IFS= read -r physical; do [[ -e /sys/class/net/${physical%%@*}/device ]] && { PRIMARY_IFACE=${physical%%@*}; break; }; done < <(ip -o link show | awk -F': ' '{print $2}'); fi; }
 addr_collect() { local o; o=$(ip -4 -o addr show dev "$PRIMARY_IFACE"); addr_parse "$o"; }
 dns_collect() { local o; if [[ -r /etc/resolv.conf ]]; then o=$(cat /etc/resolv.conf); dns_parse "$o"; fi; [[ -n ${DNS_SERVERS:-} ]] || DNS_SERVERS="1.1.1.1 1.0.0.1"; }
