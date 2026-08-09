@@ -13,7 +13,7 @@ build_cmdline() {
     : "${HOSTNAME:?HOSTNAME is required}"
     : "${DOMAIN:?DOMAIN is required}"
     local primary_dns="${DNS_SERVERS%% *}"
-    CMDLINE="auto=true priority=critical DEBIAN_FRONTEND=newt locale=en_US.UTF-8 keymap=us interface=auto netcfg/choose_interface=auto netcfg/disable_autoconfig=true netcfg/get_ipaddress=$IPV4_ADDR netcfg/get_netmask=$NETMASK netcfg/get_gateway=$GATEWAY netcfg/get_nameservers=$primary_dns netcfg/confirm_static=true netcfg/get_hostname=$HOSTNAME netcfg/get_domain=$DOMAIN preseed/file=/preseed.cfg console=ttyS0,115200n8 console=tty0 ---"
+    CMDLINE="auto=true priority=critical DEBIAN_FRONTEND=newt locale=en_US.UTF-8 keymap=us interface=auto netcfg/choose_interface=auto netcfg/disable_autoconfig=true netcfg/get_ipaddress=$IPV4_ADDR netcfg/get_netmask=$NETMASK netcfg/get_gateway=$GATEWAY netcfg/get_nameservers=$primary_dns netcfg/confirm_static=true netcfg/get_hostname=$HOSTNAME netcfg/get_domain=$DOMAIN preseed/file=/preseed.cfg nomodeset vga=normal console=ttyS0,115200n8 console=tty0 ---"
     printf '%s\n' "$CMDLINE"
 }
 
@@ -43,7 +43,7 @@ confirm_kexec() {
 execute_kexec() {
     log_warn "point of no return: executing kexec"
     sync
-    kexec -e
+    kexec -e -f 2>/dev/null || systemctl kexec 2>/dev/null || kexec -e
 }
 
 do_kexec() {

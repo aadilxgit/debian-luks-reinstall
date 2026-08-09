@@ -33,6 +33,7 @@ d-i time/zone string $TIMEZONE
 d-i clock-setup/ntp boolean true
 d-i partman-auto/method string crypto
 d-i partman-auto/disk string $TARGET_DISK
+d-i partman-auto/choose_recipe select boot-crypto
 d-i partman-auto/expert_recipe string $(build_recipe)
 d-i partman-auto-lvm/guided_size string max
 d-i partman-auto/purge_lvm_from_device boolean true
