@@ -18,9 +18,16 @@ The running system must be:
 
 Host commands required before the destructive phase include `wget`, `kexec`, `cpio`, `gzip`, `zcat`, `sha256sum`, `awk`, `ip`, `lsblk`, `findmnt`, `blkid`, `openssl`, and `systemd-detect-virt`.
 
-## Configure
+## Quick Start & Setup
 
-Copy the example and edit it:
+Clone the repository on your remote VPS:
+
+```bash
+git clone https://github.com/aadilxgit/debian-luks-reinstall.git
+cd debian-luks-reinstall
+```
+
+Copy the example configuration file and edit it:
 
 ```bash
 cp reinstall.conf.example reinstall.conf
