@@ -2,15 +2,46 @@
 set -euo pipefail
 [[ ${_POSTINSTALL_SH_LOADED:-0} == 1 ]] && return 0
 _POSTINSTALL_SH_LOADED=1
-build_postinstall_artifacts(){ local tmp=$1 d="$WORKDIR/payload/opt/reinstall"; mkdir -p "$d"; cat >"$d/late.sh" <<'EOF'
+
+build_postinstall_artifacts(){
+    local tmp=$1 d="$WORKDIR/payload/opt/reinstall"
+    mkdir -p "$d"
+    cat >"$d/late.sh" <<'EOF'
 #!/bin/sh
 set -u
+tgt=/target
+# Rebuild /target/etc/fstab from the actual block devices (UUID-based).
+# Guards against d-i writing an "UNCONFIGURED FSTAB" placeholder, which
+# happens on some VPS installs and would panic the first boot. d-i's own
+# fstab is kept untouched unless the root device was positively identified.
+dev_for() { awk -v m="$1" '$2==m {print $1; exit}' /proc/mounts; }
+fs_of()   { awk -v m="$1" '$2==m {print $3; exit}' /proc/mounts; }
+uuid_of() { blkid -s UUID -o value "$1" 2>/dev/null; }
+root_dev=$(dev_for "$tgt"); root_uuid=$(uuid_of "$root_dev")
+if [ -n "$root_uuid" ]; then
+    [ -f "$tgt/etc/fstab" ] && cp "$tgt/etc/fstab" "$tgt/etc/fstab.reinstall.bak"
+    : > "$tgt/etc/fstab"
+    printf 'UUID=%s / %s defaults,errors=remount-ro 0 1\n' "$root_uuid" "$(fs_of "$tgt")" >> "$tgt/etc/fstab"
+    boot_dev=$(dev_for "$tgt/boot"); boot_uuid=$(uuid_of "$boot_dev")
+    [ -n "$boot_uuid" ] && printf 'UUID=%s /boot %s defaults 0 2\n' "$boot_uuid" "$(fs_of "$tgt/boot")" >> "$tgt/etc/fstab"
+    efi_dev=$(dev_for "$tgt/boot/efi"); efi_uuid=$(uuid_of "$efi_dev")
+    [ -n "$efi_uuid" ] && printf 'UUID=%s /boot/efi vfat umask=0077 0 1\n' "$efi_uuid" >> "$tgt/etc/fstab"
+    swap_dev=$(blkid -t TYPE=swap -o device 2>/dev/null | head -n1)
+    swap_uuid=$(uuid_of "$swap_dev")
+    [ -n "$swap_uuid" ] && printf 'UUID=%s none swap sw 0 0\n' "$swap_uuid" >> "$tgt/etc/fstab"
+    printf 'tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,relatime,size=2G 0 0\ntmpfs /dev/shm tmpfs rw,nosuid,nodev,noexec,relatime 0 0\n' >> "$tgt/etc/fstab"
+fi
 cp /opt/reinstall/postinstall.sh /target/root/vps-postinstall.sh; cp /opt/reinstall/secrets.env /target/root/vps-secrets.env
 chmod 700 /target/root/vps-postinstall.sh /target/root/vps-secrets.env
 in-target /bin/sh /root/vps-postinstall.sh; rc=$?
+# UEFI: also write the ESP fallback path (EFI/BOOT/BOOTX64.EFI) so the box
+# still boots when the provider firmware ignores NVRAM entries.
+if [ -d /sys/firmware/efi ]; then
+    in-target grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=debian --recheck --removable >/dev/null 2>&1 || true
+fi
 shred -u /target/root/vps-secrets.env 2>/dev/null || rm -f /target/root/vps-secrets.env; rm -f /target/root/vps-postinstall.sh; exit "$rc"
 EOF
-cat >"$d/postinstall.sh" <<'EOF'
+    cat >"$d/postinstall.sh" <<'EOF'
 #!/bin/sh
 set -eu
 . /root/vps-secrets.env
@@ -29,8 +60,13 @@ mkdir -p /etc/dropbear/initramfs; : > /etc/dropbear/initramfs/authorized_keys; f
 printf '%s\n' "$NIC_MODULE" >>/etc/initramfs-tools/modules
 ufw default deny incoming; ufw default allow outgoing; ufw allow "$SSH_PORT/tcp"; ufw allow "$DROPBEAR_PORT/tcp"; for p in $WEB_PORTS; do ufw allow "$p/tcp"; done; ufw --force enable
 mkdir -p /etc/fail2ban; printf '[DEFAULT]\nbackend = systemd\nbantime = 1h\nfindtime = 10m\nmaxretry = 5\n[sshd]\nenabled = true\nport = %s\nbackend = systemd\n' "$SSH_PORT" >/etc/fail2ban/jail.local
-cat >>/etc/default/grub <<GRUB
-GRUB_CMDLINE_LINUX="ip=$IPV4::$GATEWAY:$NETMASK::$IFACE:off console=ttyS0,115200n8 console=tty0"
+# Boot cmdline for the INSTALLED system: static ip= so dropbear can unlock
+# from the initramfs, plus deterministic interface naming (eth0). Written as
+# a grub.d override instead of appending a second GRUB_CMDLINE_LINUX line to
+# /etc/default/grub (duplicate keys are fragile, last one wins).
+mkdir -p /etc/default/grub.d
+cat >/etc/default/grub.d/90-netboot.cfg <<GRUB
+GRUB_CMDLINE_LINUX="ip=$IPV4::$GATEWAY:$NETMASK::eth0:off console=ttyS0,115200n8 console=tty0 net.ifnames=0 biosdevname=0"
 GRUB
 cat >/etc/apt/apt.conf.d/50unattended-upgrades <<'UPG'
 Unattended-Upgrade::Origins-Pattern {
@@ -93,10 +129,9 @@ APT::Periodic::Unattended-Upgrade "1";
 APT::Periodic::Download-Upgradeable-Packages "1";
 APT::Periodic::AutocleanInterval "7";
 APT
-printf 'tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,relatime,size=2G 0 0\ntmpfs /dev/shm tmpfs rw,nosuid,nodev,noexec,relatime 0 0\n' >>/etc/fstab
 update-initramfs -u -k all; update-grub
 EOF
-cat >"$d/secrets.env" <<EOF
+    cat >"$d/secrets.env" <<EOF
 TMPPW=$(printf '%q' "$tmp")
 USERPW=$(printf '%q' "$LUKS_PASSPHRASE")
 ADMIN_USER=$(printf '%q' "$ADMIN_USER")
@@ -106,4 +141,5 @@ SSH_PORT=$(printf '%q' "$SSH_PORT")
 DROPBEAR_PORT=$(printf '%q' "$DROPBEAR_PORT")
 IPV4=$(printf '%q' "$IPV4_ADDR"); NETMASK=$(printf '%q' "$NETMASK"); GATEWAY=$(printf '%q' "$GATEWAY"); IFACE=$(printf '%q' "$PRIMARY_IFACE"); NIC_MODULE=$(printf '%q' "$NIC_MODULE"); DNS=$(printf '%q' "$DNS_SERVERS"); WEB_PORTS=$(printf '%q' "$WEB_PORTS"); ADMIN_PASSWORD_HASH=$(printf '%q' "$ADMIN_PASSWORD_HASH")
 EOF
-chmod 700 "$d/late.sh" "$d/postinstall.sh"; chmod 600 "$d/secrets.env"; }
+    chmod 700 "$d/late.sh" "$d/postinstall.sh"; chmod 600 "$d/secrets.env"
+}
